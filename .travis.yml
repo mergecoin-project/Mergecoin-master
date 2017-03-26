@@ -1,0 +1,47 @@
+language: cpp
+dist: trusty
+sudo: false
+compiler:
+  - clang
+  - gcc
+cache:
+  directories:
+  - $HOME/Mergecoin/ion/src/leveldb
+  - $HOME/Mergecoin/ion/src/secp256k1
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:bitcoin/bitcoin'
+    packages:
+      - autoconf
+      - autotools-dev
+      - build-essential
+      - libboost-all-dev
+      - libcrypto++-dev
+      - libdb4.8++-dev
+      - libdb4.8-dev
+      - libevent-dev
+      - libgmp-dev
+      - libminiupnpc-dev
+      - libprotobuf-dev
+      - libqt5core5a
+      - libqt5dbus5
+      - libqt5gui5
+      - libssl-dev
+      - libtool
+      - pkg-config
+      - protobuf-compiler
+      - qttools5-dev
+      - qttools5-dev-tools
+before_script:
+  - chmod 755 src/leveldb/build_detect_platform
+  # Clang is not system wide.  This is a work around.
+  - $CC --version
+  - which $CC
+  - export CC=`which $CC`
+script:
+  - cd src
+  - make -f makefile.unix
+  - cd ..
+  - qmake -qt=qt5 USE_UPNP=- "QMAKE_CXX=$CXX" "QMAKE_CC=$CC"
+  - make

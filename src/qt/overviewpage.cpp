@@ -140,9 +140,9 @@ OverviewPage::OverviewPage(QWidget *parent) :
     ui->labelTransactionsStatus->setText("(" + tr("out of sync") + ")");
 
     fLiteMode = GetBoolArg("-litemode", false);
-    fProduction = true;
+  
 
-    if(fLiteMode || fProduction) {
+    if(fLiteMode) {
         ui->frameDarksend->setVisible(false);
     } else {
         if(fMasterNode) {
@@ -175,7 +175,7 @@ void OverviewPage::handleTransactionClicked(const QModelIndex &index)
 
 OverviewPage::~OverviewPage()
 {
-    if(!fLiteMode && !fMasterNode && !fProduction) disconnect(timer, SIGNAL(timeout()), this, SLOT(darkSendStatus()));
+    if(!fLiteMode && !fMasterNode) disconnect(timer, SIGNAL(timeout()), this, SLOT(darkSendStatus()));
     delete ui;
 }
 
@@ -504,12 +504,6 @@ void OverviewPage::darksendReset() {
 }
 
 void OverviewPage::toggleDarksend() {
-    QMessageBox::StandardButton askIfAGoodIdea;
-    askIfAGoodIdea = QMessageBox::question(this, tr("DarkSend Mixing"), 
-												 tr("DarkSend is not for production networks yet! Please continue at your own risk! Any loss of coins will be the sole liability of the user, would you like to continue?"),
-                                           QMessageBox::Yes|QMessageBox::No);
-
-    if (askIfAGoodIdea == QMessageBox::Yes) {
         QSettings settings;
         // Popup some information on first mixing
         QString hasMixed = settings.value("hasMixed").toString();
@@ -566,8 +560,6 @@ void OverviewPage::toggleDarksend() {
                 dlg.exec();
             }
 
-        }
-    } else {
-        // Keep it blank...
+
     }
 }

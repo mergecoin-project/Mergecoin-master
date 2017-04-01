@@ -12,7 +12,7 @@ Mergecoin Integration/Staging Tree
 ----------------
 * Coin Suffix: MGC
 * PoW Algorithm: SHA256d
-* PoW Period: 2,000 Network Initiation Blocks
+* PoW Period: 20,000 Network Initiation Blocks
 * PoW Median Target Spacing: 64 Seconds
 * PoW Difficulty Retarget: 2 Blocks
 * Full Confirmation: 60 Blocks

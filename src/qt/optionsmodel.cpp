@@ -72,7 +72,7 @@ void OptionsModel::Init()
     if (settings.contains("nDarksendRounds"))
         SoftSetArg("-darksendrounds", settings.value("nDarksendRounds").toString().toStdString());
     if (settings.contains("nAnonymizeIonAmount"))
-        SoftSetArg("-anonymizeionamount", settings.value("nAnonymizeMGCAmount").toString().toStdString());
+        SoftSetArg("-anonymizeionamount", settings.value("nAnonymizeIonAmount").toString().toStdString());
 
 
 
@@ -320,7 +320,7 @@ bool OptionsModel::setData(const QModelIndex & index, const QVariant & value, in
             break;
         case AnonymizeIonAmount:
             nAnonymizeIonAmount = value.toInt();
-            settings.setValue("nAnonymizeMGCAmount", nAnonymizeIonAmount);
+            settings.setValue("nAnonymizeIonAmount", nAnonymizeIonAmount);
             emit AnonymizeIonAmountChanged(nAnonymizeIonAmount);
             break;
         default:

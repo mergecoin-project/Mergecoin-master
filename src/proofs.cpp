@@ -52,13 +52,13 @@ int64_t GetCoinstakeValue(int64_t nCoinAge, CAmount nFees, int nHeight)
 {
 	CAmount nSubsidy = 5 * COIN;
 
-	if(nHeight <= 125146) {
+	if(nHeight <= 568622) {
 		nSubsidy = 30 * COIN;
-	} else if(nHeight <= 568622) {
+	} else if(nHeight <= 1094222) {
 		nSubsidy = 20 * COIN;
-	} else if(nHeight <= 1012098) {
+	} else if(nHeight <= 1619822) {
 		nSubsidy = 10 * COIN;
-	} else if(nHeight <= 1455574) {
+	} else if(nHeight <= 2145422) {
 		nSubsidy = 5 * COIN;
 	} else if(nHeight <= 3675950) {
 		nSubsidy = 5 * COIN;

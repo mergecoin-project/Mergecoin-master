@@ -59,8 +59,9 @@ static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20
 static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 128;
 /** Timeout in seconds before considering a block download peer unresponsive. */
 static const unsigned int BLOCK_DOWNLOAD_TIMEOUT = 60;
-
+inline bool IsProtocolV2(int nHeight) { return TestNet() || nHeight > 125146; }
 inline int64_t FutureDrift(int64_t nTime) { return nTime + 16200; }
+inline int64_t FutureDriftV2(int64_t nTime) { return nTime + 600; }
 
 /** "reject" message codes **/
 static const unsigned char REJECT_INVALID = 0x10;
@@ -1023,7 +1024,10 @@ public:
 
     int64_t GetPastTimeLimit() const
     {
-        return GetBlockTime() - 16200;
+        if (IsProtocolV2(nHeight))
+		return GetBlockTime()-600;
+	    else
+		    return GetBlockTime() - 16200;
     }
 
     enum { nMedianTimeSpan=11 };

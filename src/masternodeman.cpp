@@ -534,6 +534,65 @@ std::vector<pair<int, CMasternode> > CMasternodeMan::GetMasternodeRanks(int64_t 
     return vecMasternodeRanks;
 }
 
+std::vector<pair<int, CMasternode> > CMasternodeMan::GetMasternodeScores(int64_t nBlockHeight, int minProtocol)
+{
+	std::vector<pair<unsigned int, CMasternode> > vecMasternodeScores;
+	std::vector<pair<int, CMasternode> > vecMasternodeRanks;
+
+	//make sure we know about this block
+	uint256 hash = 0;
+	if (!GetBlockHash(hash, nBlockHeight)) return vecMasternodeRanks;
+
+	// scan for winner
+	BOOST_FOREACH(CMasternode& mn, vMasternodes) {
+
+		mn.Check();
+
+		if (mn.protocolVersion < minProtocol) continue;
+		if (!mn.IsEnabled()) {
+			continue;
+		}
+
+		uint256 n = mn.CalculateScore(1, nBlockHeight);
+		unsigned int n2 = 0;
+		memcpy(&n2, &n, sizeof(n2));
+
+		vecMasternodeScores.push_back(make_pair(n2, mn));
+	}
+
+	sort(vecMasternodeScores.rbegin(), vecMasternodeScores.rend(), CompareValueOnlyMN());
+
+	int rank = 0;
+	BOOST_FOREACH(PAIRTYPE(unsigned int, CMasternode)& s, vecMasternodeScores){
+		rank++;
+		vecMasternodeRanks.push_back(make_pair(s.first, s.second));
+	}
+
+	return vecMasternodeRanks;
+}
+
+unsigned int CMasternodeMan::GetMasternodeCount(int64_t nBlockHeight)
+{
+	unsigned int iMasterNodes = 0;
+
+	//make sure we know about this block
+	uint256 hash = 0;
+	if (!GetBlockHash(hash, nBlockHeight)) 
+		return 0;
+
+	// scan for enabled masternodes
+	BOOST_FOREACH(CMasternode& mn, vMasternodes) 
+	{
+		mn.Check();
+		//if (mn.protocolVersion < minProtocol)
+		//	continue;
+		if (!mn.IsEnabled())
+			continue;
+		iMasterNodes++;
+	}
+	return iMasterNodes;
+}
+
 CMasternode* CMasternodeMan::GetMasternodeByRank(int nRank, int64_t nBlockHeight, int minProtocol, bool fOnlyActive)
 {
     std::vector<pair<unsigned int, CTxIn> > vecMasternodeScores;

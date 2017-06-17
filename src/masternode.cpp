@@ -154,17 +154,25 @@ CMasternode::CMasternode(CService newAddr, CTxIn newVin, CPubKey newPubkey, std:
 uint256 CMasternode::CalculateScore(int mod, int64_t nBlockHeight)
 {
     if(pindexBest == NULL) return 0;
+	uint256 r;
+	if (nBlockHeight == 0)
+		nBlockHeight = pindexBest->nHeight;
+	if (IsProtocolV3(nBlockHeight))
+	{
+		r = GetMasternodeInputAge();
+	}
+	else
+	{
+		uint256 hash = 0;
+		uint256 aux = vin.prevout.hash + vin.prevout.n;
 
-    uint256 hash = 0;
-    uint256 aux = vin.prevout.hash + vin.prevout.n;
+		if (!GetBlockHash(hash, nBlockHeight)) return 0;
 
-    if(!GetBlockHash(hash, nBlockHeight)) return 0;
+		uint256 hash2 = Hash(BEGIN(hash), END(hash));
+		uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
 
-    uint256 hash2 = Hash(BEGIN(hash), END(hash));
-    uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
-
-    uint256 r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
-
+		r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
+	}
     return r;
 }
 

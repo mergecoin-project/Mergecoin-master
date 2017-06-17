@@ -9,6 +9,7 @@
 #include "stake.h"
 #include "masternodeman.h"
 #include "masternode-payments.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -100,6 +101,27 @@ public:
     }
 };
 
+int GetMidMasternodes()
+{
+	int iMasternodes = 0;
+	vector <unsigned int> vecNodes;
+	int inNonce;
+	CBlockIndex *pBlockCurr = pindexBest;
+	for (int i = 0; i < 361; i++)
+	{
+		if (pBlockCurr)
+		{
+			vecNodes.push_back(pBlockCurr->nNonce);
+			pBlockCurr = pBlockCurr->pprev;
+		}
+		else
+			vecNodes.push_back(0);
+	}
+	sort(vecNodes.begin(), vecNodes.end());
+	iMasternodes = vecNodes.at(180);
+	return iMasternodes;
+}
+
 // CreateNewBlock: create new block (without proof-of-work/proof-of-stake)
 CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFees)
 {
@@ -107,7 +129,9 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
     auto_ptr<CBlock> pblock(new CBlock());
     if (!pblock.get())
         return NULL;
-
+	pblock->nNonce = mnodeman.GetMasternodeCount(); //V3
+	if (pblock->nNonce > 2000)
+		pblock->nNonce = 2000;
     CBlockIndex* pindexPrev = pindexBest;
     int nHeight = pindexPrev->nHeight + 1;
 

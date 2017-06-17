@@ -21,7 +21,7 @@
 #include "masternode-payments.h"
 #include "spork.h"
 #include "util.h"
-
+#include "miner.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -1920,8 +1920,10 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     CAmount nFees = 0;
     CAmount nValueIn = 0;
     CAmount nValueOut = 0;
-    int64_t nStakeReward = 0;
-    unsigned int nSigOps = 0;
+	int64_t nStakeReward = 0;
+	int64_t nStakeRewardPOS = 0;
+	int64_t nStakeRewardMN = 0;
+	unsigned int nSigOps = 0;
     int nInputs = 0;
 
     BOOST_FOREACH(CTransaction& tx, vtx)
@@ -1959,8 +1961,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
             nValueOut += nTxValueOut;
             if (!tx.IsCoinStake())
                 nFees += nTxValueIn - nTxValueOut;
-            if (tx.IsCoinStake())
-                nStakeReward = nTxValueOut - nTxValueIn;
+			if (tx.IsCoinStake())
+			{
+				nStakeReward = nTxValueOut - nTxValueIn;
+				//nStakeRewardPOS = txdb. - nTxValueIn;
+			}
 
 
             if (!tx.ConnectInputs(txdb, mapInputs, mapQueuedChanges, posThisTx, pindex, true, false, flags))
@@ -1990,6 +1995,80 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));
+
+
+		bool hasPayment = true;
+		int64_t masternodePaymentShouldMax = GetMasternodePayment(pindex->nHeight, nCalculatedStakeReward);
+		int64_t masternodePaymentShouldActual = masternodePaymentShouldMax;
+		if (IsProtocolV3(pindex->nHeight))
+		{
+			CAmount masternodePaymentAmount;
+			for (int i = vtx[1].vout.size(); i--> 0;) 
+			{
+				masternodePaymentAmount = vtx[1].vout[i].nValue;
+				break;
+			}
+
+			bool foundPaymentAmount = false;
+			bool foundPayee = false;
+			bool foundPaymentAndPayee = false;
+
+			CScript payee;
+			CTxIn vin;
+			if (!masternodePayments.GetBlockPayee(pindex->nHeight, payee, vin) || payee == CScript()){
+				foundPayee = true; //doesn't require a specific payee
+				foundPaymentAmount = true;
+				foundPaymentAndPayee = true;
+				//if (fDebug) { LogPrintf("ConnectBlock() : Using non-specific masternode payments %d\n", pindex->nHeight); }
+			}
+
+			for (unsigned int i = 0; i < vtx[1].vout.size(); i++) {
+				if (vtx[1].vout[i].nValue == masternodePaymentAmount)
+					foundPaymentAmount = true;
+				if (vtx[1].vout[i].scriptPubKey == payee)
+					foundPayee = true;
+				if (vtx[1].vout[i].nValue == masternodePaymentAmount && vtx[1].vout[i].scriptPubKey == payee)
+					foundPaymentAndPayee = true;
+			}
+
+			if (foundPaymentAndPayee)
+			{
+				unsigned int iWinerAge = 0;
+				unsigned int iMidMNCount = 0;
+				iWinerAge = (unsigned int)GetInputAge(vin);
+				iMidMNCount = (unsigned int)GetMidMasternodes();
+				if (iWinerAge > (iMidMNCount*0.6))
+					;
+				else
+				{
+					masternodePaymentShouldActual = GetMasternodePaymentSmall(pindex->nHeight, nFees);
+				}
+				// iMidMNCount>0 时，masternodePaymentAmount > masternodePaymentShouldActual 的情况下依然能通过检查。这不对。
+				if (iMidMNCount > 0)
+					if (masternodePaymentAmount > masternodePaymentShouldActual) //应该是 iMidMNCount 非零时，大于
+						return error("Connect() : (iMidMNCount=%d) masternodePaymentAmount %ld larger than %ld",
+						iMidMNCount, masternodePaymentAmount, masternodePaymentShouldActual);
+				if (iMidMNCount == 0)
+					if (masternodePaymentAmount > masternodePaymentShouldMax)
+						return error("Connect() : (iMidMNCount=0) masternodePaymentAmount %ld larger than %ld",
+						masternodePaymentAmount, masternodePaymentShouldActual);
+				if (nStakeReward > nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount))
+					return error("ConnectBlock() : coinstake pays too much (actual=%d vs calculated=%d)", nStakeReward,
+					nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount));
+			}
+			else
+			{
+				if (fDebug)
+				{ 
+					CTxDestination address1;
+					ExtractDestination(payee, address1);
+					CIonAddress address2(address1);
+					LogPrintf("CheckBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
+						foundPaymentAmount, masternodePaymentAmount, foundPayee, address2.ToString().c_str(), pindex->nHeight);
+				}
+				return DoS(100, error("CheckBlock() : Couldn't find masternode payment or payee"));
+			}
+		}
     }
 
     // ppcoin: track money supply and mint amount info
@@ -2452,8 +2531,10 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 {
     // These are checks that are independent of context
     // that can be verified before saving an orphan block.
-
-    // Size limits
+	if (IsProtocolV3(pindexBest->nHeight + 1))
+		if (nNonce > 2000)
+			return DoS(100, error("CheckBlock() : nNonce=%u, larger than 2000", nNonce));
+	// Size limits
     if (vtx.empty() || vtx.size() > MAX_BLOCK_SIZE || ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
         return DoS(100, error("CheckBlock() : size limits failed"));
 
@@ -2462,7 +2543,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
         return DoS(50, error("CheckBlock() : proof of work failed"));
 
     // Check timestamp
-    if (GetBlockTime() > FutureDrift(GetAdjustedTime()))
+    if (GetBlockTime() > FutureDriftV3(GetAdjustedTime()))
         return error("CheckBlock() : block timestamp too far in the future");
 
     // First transaction must be coinbase, the rest must not be
@@ -2668,7 +2749,7 @@ bool CBlock::AcceptBlock()
 
     // Check timestamp against prev
     if (GetBlockTime() <= pindexPrev->GetPastTimeLimit() || FutureDrift(GetBlockTime()) < pindexPrev->GetBlockTime())
-        return error("AcceptBlock() : block's timestamp is too early");
+		return DoS(10, error("AcceptBlock() : block's timestamp is too early")); //V3 (2017.6.15)
 
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, vtx)
@@ -2959,7 +3040,7 @@ bool CBlock::SignBlock(CWallet& wallet, CAmount nFees)
         int64_t nSearchInterval = 1;
         if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key))
         {
-            if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1)
+            if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1) //V3 (2017.6.15) GetPastTimeLimit() was changed.
             {
                 // make sure coinstake would meet timestamp protocol
                 //    as it would be the same as the block timestamp
@@ -4557,4 +4638,17 @@ int64_t GetMasternodePayment(int nHeight, int64_t blockValue)
     int64_t ret = blockValue * 4/5; //80%
 
     return ret;
+}
+
+int64_t GetMasternodePaymentSmall(int nHeight, CAmount nFees)
+{
+	int64_t nReward2;
+	uint64_t nCoinAge=0;
+	nReward2 = GetCoinstakeValue(nCoinAge, 0, nHeight);
+	if (nReward2 <= 0)
+		return false;
+	int64_t ret = GetMasternodePayment(nHeight, nReward2) / 24;
+	ret += GetMasternodePayment(nHeight, nFees);
+
+	return ret;
 }

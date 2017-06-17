@@ -23,6 +23,7 @@
 #include "chainparams.h"
 #include "main.h"
 #include "proofs.h"
+#include "miner.h"
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -3510,12 +3511,32 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     CScript payee;
     CTxIn vin;
     bool hasPayment = true;
-    if(bMasterNodePayment) {
+	int64_t masternodePayment = GetMasternodePayment(pindexPrev->nHeight + 1, nReward);
+	if (bMasterNodePayment) {
         //spork
         if(!masternodePayments.GetBlockPayee(pindexPrev->nHeight+1, payee, vin)){
             CMasternode* winningNode = mnodeman.GetCurrentMasterNode(1);
             if(winningNode){
-                payee = GetScriptForDestination(winningNode->pubkey.GetID());
+				if (IsProtocolV3(pindexPrev->nHeight + 1))
+				{
+					int iWinerAge = 0;
+					int iMidMNCount = 0;
+					iWinerAge = winningNode->GetMasternodeInputAge();
+					iMidMNCount = GetMidMasternodes();
+					//if (iMidMNCount > 0) //
+					if (iWinerAge > (iMidMNCount*0.6))
+					{
+						payee = GetScriptForDestination(winningNode->pubkey.GetID());
+					}
+					else
+					{
+						masternodePayment = GetMasternodePaymentSmall(pindexPrev->nHeight + 1, nFees);
+
+						payee = GetScriptForDestination(winningNode->pubkey.GetID());
+					}
+				}
+				else
+					payee = GetScriptForDestination(winningNode->pubkey.GetID());
             } else {
                 return error("CreateCoinStake: Failed to detect masternode to pay\n");
             }
@@ -3537,7 +3558,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     }
 
     int64_t blockValue = nCredit;
-    int64_t masternodePayment = GetMasternodePayment(pindexPrev->nHeight+1, nReward);
 
 
     // Set output amount

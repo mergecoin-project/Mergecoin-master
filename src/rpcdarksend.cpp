@@ -780,8 +780,9 @@ Value masternodelist(const Array& params, bool fHelp)
                 "  lastseen       - Print timestamp of when a masternode was last seen on the network\n"
                 "  protocol       - Print protocol of a masternode (can be additionally filtered, exact match)\n"
                 "  pubkey         - Print public key associated with a masternode (can be additionally filtered, partial match)\n"
-                "  rank           - Print rank of a masternode based on current block\n"
-                "  status         - Print masternode status: ENABLED / EXPIRED / VIN_SPENT / REMOVE / POS_ERROR (can be additionally filtered, partial match)\n"
+				"  rank           - Print rank of a masternode based on current block\n"
+				"  score          - Print scores of all masternodes based on current block\n"
+				"  status         - Print masternode status: ENABLED / EXPIRED / VIN_SPENT / REMOVE / POS_ERROR (can be additionally filtered, partial match)\n"
                 "  addr            - Print ip address associated with a masternode (can be additionally filtered, partial match)\n"
                 "  votes          - Print all masternode votes for a Mergecoin initiative (can be additionally filtered, partial match)\n"
                 "  lastpaid       - The last time a node was paid on the network\n"
@@ -796,7 +797,25 @@ Value masternodelist(const Array& params, bool fHelp)
             if(strFilter !="" && strVin.find(strFilter) == string::npos) continue;
             obj.push_back(Pair(strVin,       s.first));
         }
-    } else {
+    }
+	else if (strMode == "score")
+	{
+		std::vector<pair<int, CMasternode> > vMasternodeScores = mnodeman.GetMasternodeScores(pindexBest->nHeight);
+		BOOST_FOREACH(PAIRTYPE(int, CMasternode)& s, vMasternodeScores)
+		{
+			std::string strVin = s.second.vin.prevout.ToStringShort();
+			if (strFilter != "" && strVin.find(strFilter) == string::npos) continue;
+
+			CScript pubkey;
+			pubkey.SetDestination(s.second.pubkey.GetID());
+			CTxDestination address1;
+			ExtractDestination(pubkey, address1);
+			CIonAddress address2(address1);
+
+			obj.push_back(Pair(address2.ToString().c_str(), s.first));
+		}
+	}
+	else {
         std::vector<CMasternode> vMasternodes = mnodeman.GetFullMasternodeVector();
         BOOST_FOREACH(CMasternode& mn, vMasternodes) {
             std::string strVin = mn.vin.prevout.ToStringShort();

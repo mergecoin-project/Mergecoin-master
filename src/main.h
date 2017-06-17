@@ -60,8 +60,9 @@ static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 128;
 /** Timeout in seconds before considering a block download peer unresponsive. */
 static const unsigned int BLOCK_DOWNLOAD_TIMEOUT = 60;
 inline bool IsProtocolV2(int nHeight) { return TestNet() || nHeight > 125146; }
+inline bool IsProtocolV3(int nHeight) { return TestNet() || nHeight > 190000; }
 inline int64_t FutureDrift(int64_t nTime) { return nTime + 16200; }
-inline int64_t FutureDriftV2(int64_t nTime) { return nTime + 600; }
+inline int64_t FutureDriftV3(int64_t nTime) { return nTime + 30; } //V3 (2017.6.15)
 
 /** "reject" message codes **/
 static const unsigned char REJECT_INVALID = 0x10;
@@ -169,6 +170,7 @@ void Misbehaving(NodeId nodeid, int howmuch);
 
 
 int64_t GetMasternodePayment(int nHeight, int64_t blockValue);
+int64_t GetMasternodePaymentSmall(int nHeight, CAmount nFees);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -1024,9 +1026,11 @@ public:
 
     int64_t GetPastTimeLimit() const
     {
-        if (IsProtocolV2(nHeight))
-		return GetBlockTime()-600;
-	    else
+		if (IsProtocolV3(nHeight))
+			return GetBlockTime();  //V3 (2017.6.15)
+		else if (IsProtocolV2(nHeight))
+			return GetBlockTime()-600;  //V2
+		else
 		    return GetBlockTime() - 16200;
     }
 

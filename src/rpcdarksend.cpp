@@ -765,7 +765,8 @@ Value masternodelist(const Array& params, bool fHelp)
 
     if (fHelp ||
             (strMode != "activeseconds" && strMode != "donation" && strMode != "full" && strMode != "lastseen" && strMode != "protocol" 
-                && strMode != "pubkey" && strMode != "rank" && strMode != "status" && strMode != "addr" && strMode != "votes" && strMode != "lastpaid"))
+                && strMode != "pubkey" && strMode != "rank" && strMode != "status" && strMode != "addr" && strMode != "votes" && strMode != "lastpaid"
+				&& strMode != "score"))
     {
         throw runtime_error(
                 "masternodelist ( \"mode\" \"filter\" )\n"
@@ -800,8 +801,8 @@ Value masternodelist(const Array& params, bool fHelp)
     }
 	else if (strMode == "score")
 	{
-		std::vector<pair<int, CMasternode> > vMasternodeScores = mnodeman.GetMasternodeScores(pindexBest->nHeight);
-		BOOST_FOREACH(PAIRTYPE(int, CMasternode)& s, vMasternodeScores)
+		std::vector<pair<unsigned int, CMasternode> > vMasternodeScores = mnodeman.GetMasternodeScores(pindexBest->nHeight);
+		BOOST_FOREACH(PAIRTYPE(unsigned int, CMasternode)& s, vMasternodeScores)
 		{
 			std::string strVin = s.second.vin.prevout.ToStringShort();
 			if (strFilter != "" && strVin.find(strFilter) == string::npos) continue;
@@ -811,8 +812,9 @@ Value masternodelist(const Array& params, bool fHelp)
 			CTxDestination address1;
 			ExtractDestination(pubkey, address1);
 			CIonAddress address2(address1);
-
-			obj.push_back(Pair(address2.ToString().c_str(), s.first));
+			char strScores[100];
+			sprintf(strScores, "%X", s.first);
+			obj.push_back(Pair(address2.ToString().c_str(), strScores));
 		}
 	}
 	else {

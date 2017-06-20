@@ -3343,7 +3343,7 @@ uint64_t CWallet::GetStakeWeight() const
     return nWeight;
 }
 
-bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, CAmount nFees, CTransaction& txNew, CKey& key)
+bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, CAmount nFees, CTransaction& txNew, CKey& key, unsigned int *nNonceBlock)
 {
     CBlockIndex* pindexPrev = pindexBest;
     uint256 bnTargetPerCoinDay;
@@ -3516,14 +3516,35 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         //spork
         if(!masternodePayments.GetBlockPayee(pindexPrev->nHeight+1, payee, vin)){
             CMasternode* winningNode = mnodeman.GetCurrentMasterNode(1);
-            if(winningNode){
+            if(winningNode)
+			{
+				CScript pubkeyWork;
+				pubkeyWork.SetDestination(winningNode->pubkey.GetID());
+				CTxDestination address1;
+				ExtractDestination(pubkeyWork, address1);
+				CIonAddress address2(address1);
+				std::string strAddr = address2.ToString();
+				uint256 hash4;
+				SHA256((unsigned char*)strAddr.c_str(), strAddr.length(), (unsigned char*)&hash4);
+				unsigned int iAddrHash;
+				memcpy(&iAddrHash, &hash4, 4);
+				iAddrHash = iAddrHash << 11;
+				unsigned int iCurrentMNs = mnodeman.GetMasternodeCount();
+				if (iCurrentMNs > 2047)
+					iCurrentMNs = 2047;
+				*nNonceBlock = (iAddrHash | iCurrentMNs);
+				fprintf(stderr, "CreateCoinStake():MN addr:%s, AddrHash:%X, nNonceBlock&~2047:%X, nNonceBlock:%X\n",
+					strAddr.c_str(), iAddrHash, (*nNonceBlock & (~2047)), *nNonceBlock); //for Debug
 				if (IsProtocolV3(pindexPrev->nHeight + 1))
 				{
 					int iWinerAge = 0;
+					unsigned int iWinerAgeU = 0;
+					uint256 iWinerAge256 = 0;
 					int iMidMNCount = 0;
-					iWinerAge = winningNode->GetMasternodeInputAge();
+					iWinerAge256 = winningNode->CalculateScore();
+					memcpy(&iWinerAgeU, &iWinerAge256, 4);
+					iWinerAge = (iWinerAgeU >> 20);
 					iMidMNCount = GetMidMasternodes();
-					//if (iMidMNCount > 0) //
 					if (iWinerAge > (iMidMNCount*0.6))
 					{
 						payee = GetScriptForDestination(winningNode->pubkey.GetID());
@@ -3531,7 +3552,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 					else
 					{
 						masternodePayment = GetMasternodePaymentSmall(pindexPrev->nHeight + 1, nFees);
-
 						payee = GetScriptForDestination(winningNode->pubkey.GetID());
 					}
 				}

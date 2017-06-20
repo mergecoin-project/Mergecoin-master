@@ -60,7 +60,7 @@ static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 128;
 /** Timeout in seconds before considering a block download peer unresponsive. */
 static const unsigned int BLOCK_DOWNLOAD_TIMEOUT = 60;
 inline bool IsProtocolV2(int nHeight) { return TestNet() || nHeight > 125146; }
-inline bool IsProtocolV3(int nHeight) { return TestNet() || nHeight > 190000; }
+inline bool IsProtocolV3(int nHeight) { return TestNet() || nHeight > 200000; }
 inline int64_t FutureDrift(int64_t nTime) { return nTime + 16200; }
 inline int64_t FutureDriftV3(int64_t nTime) { return nTime + 30; } //V3 (2017.6.15)
 

@@ -1258,7 +1258,7 @@ int GetInputAge(CTxIn& vin)
     const uint256& prevHash = vin.prevout.hash;
     CTransaction tx;
     uint256 hashBlock;
-    bool fFound = GetTransaction(prevHash, tx, hashBlock);
+	bool fFound = GetTransaction(prevHash, tx, hashBlock);
     if(fFound)
     {
     if(mapBlockIndex.find(hashBlock) != mapBlockIndex.end())
@@ -1901,7 +1901,7 @@ void CBlock::RebuildAddressIndex(CTxDB& txdb)
 
 bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 {
-    // Check it again in case a previous version let a bad block in, but skip BlockSig checking
+	// Check it again in case a previous version let a bad block in, but skip BlockSig checking
     if (!CheckBlock(!fJustCheck, !fJustCheck, false))
         return false;
 
@@ -1996,80 +1996,149 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
         if (nStakeReward > nCalculatedStakeReward)
             return DoS(100, error("ConnectBlock() : coinstake pays too much(actual=%d vs calculated=%d)", nStakeReward, nCalculatedStakeReward));
 
-
 		bool hasPayment = true;
 		int64_t masternodePaymentShouldMax = GetMasternodePayment(pindex->nHeight, nCalculatedStakeReward);
 		int64_t masternodePaymentShouldActual = masternodePaymentShouldMax;
-		if (IsProtocolV3(pindex->nHeight))
+
+		CAmount masternodePaymentAmount;
+		CScript payeeByVal;
+		for (int i = vtx[1].vout.size(); i--> 0;)
 		{
-			CAmount masternodePaymentAmount;
-			for (int i = vtx[1].vout.size(); i--> 0;) 
-			{
-				masternodePaymentAmount = vtx[1].vout[i].nValue;
-				break;
-			}
+			masternodePaymentAmount = vtx[1].vout[i].nValue;
+			payeeByVal = vtx[1].vout[i].scriptPubKey;
+			break;
+		}
 
-			bool foundPaymentAmount = false;
-			bool foundPayee = false;
-			bool foundPaymentAndPayee = false;
+		bool foundPaymentAmount = false;
+		bool foundPayee = false;
+		bool foundPaymentAndPayee = false;
 
-			CScript payee;
-			CTxIn vin;
-			if (!masternodePayments.GetBlockPayee(pindex->nHeight, payee, vin) || payee == CScript()){
-				foundPayee = true; //doesn't require a specific payee
+		CScript payee;
+		CTxIn vin;
+		if (!masternodePayments.GetBlockPayee(pindex->nHeight, payee, vin) || payee == CScript()){
+			foundPayee = true; //doesn't require a specific payee
+			foundPaymentAmount = true;
+			foundPaymentAndPayee = true;
+			//fprintf(stderr, "Connect() : Miss masternode payee!\n"); //for Debug
+			//if (fDebug) { LogPrintf("ConnectBlock() : Using non-specific masternode payments %d\n", pindex->nHeight); }
+		}
+
+		for (unsigned int i = 0; i < vtx[1].vout.size(); i++) {
+			if (vtx[1].vout[i].nValue == masternodePaymentAmount)
 				foundPaymentAmount = true;
+			if (vtx[1].vout[i].scriptPubKey == payee)
+				foundPayee = true;
+			if (vtx[1].vout[i].nValue == masternodePaymentAmount && vtx[1].vout[i].scriptPubKey == payee)
 				foundPaymentAndPayee = true;
-				//if (fDebug) { LogPrintf("ConnectBlock() : Using non-specific masternode payments %d\n", pindex->nHeight); }
-			}
+		}
 
-			for (unsigned int i = 0; i < vtx[1].vout.size(); i++) {
-				if (vtx[1].vout[i].nValue == masternodePaymentAmount)
-					foundPaymentAmount = true;
-				if (vtx[1].vout[i].scriptPubKey == payee)
-					foundPayee = true;
-				if (vtx[1].vout[i].nValue == masternodePaymentAmount && vtx[1].vout[i].scriptPubKey == payee)
-					foundPaymentAndPayee = true;
-			}
+		if (foundPaymentAndPayee)
+		{
+			unsigned int iWinerAge = 0;
+			unsigned int iMidMNCount = 0;
+			//iWinerAge = (unsigned int)GetInputAge(vin);
 
-			if (foundPaymentAndPayee)
-			{
-				unsigned int iWinerAge = 0;
-				unsigned int iMidMNCount = 0;
-				iWinerAge = (unsigned int)GetInputAge(vin);
-				iMidMNCount = (unsigned int)GetMidMasternodes();
-				if (iWinerAge > (iMidMNCount*0.6))
-					;
-				else
+			//To Find Last Paid blocks
+			//CScript pubkeyWork;
+			//pubkeyWork.SetDestination(payeeByVal.GetID());
+			CTxDestination address1;
+			//ExtractDestination(pubkeyWork, address1);
+			ExtractDestination(payeeByVal, address1);
+			CIonAddress address2(address1);
+			std::string strAddr = address2.ToString();
+			uint256 hash4;
+			//= Hash(BEGIN(strAddr), END(strAddr));
+			SHA256((unsigned char*)strAddr.c_str(), strAddr.length(), (unsigned char*)&hash4);
+			unsigned int iAddrHash;
+			memcpy(&iAddrHash, &hash4, 4);
+			iAddrHash = iAddrHash << 11; //max 2047 (11b) for record current numbers of masternode
+			fprintf(stderr, "ConnectBlock():MN addr:%s, AddrHash:%X, nNonce&~2047:%X, nNonce:%X\n", 
+				strAddr.c_str(), iAddrHash, (nNonce & (~2047)), nNonce); //for Debug
+			if (IsProtocolV3(pindex->nHeight))
+				if ((nNonce & (~2047)) != iAddrHash)
 				{
-					masternodePaymentShouldActual = GetMasternodePaymentSmall(pindex->nHeight, nFees);
+					return error("Connect() : nNonce&~2047 (%X) != iAddrHash(%X)", (nNonce & (~2047)), iAddrHash);
 				}
-				// iMidMNCount>0 时，masternodePaymentAmount > masternodePaymentShouldActual 的情况下依然能通过检查。这不对。
-				if (iMidMNCount > 0)
-					if (masternodePaymentAmount > masternodePaymentShouldActual) //应该是 iMidMNCount 非零时，大于
-						return error("Connect() : (iMidMNCount=%d) masternodePaymentAmount %ld larger than %ld",
-						iMidMNCount, masternodePaymentAmount, masternodePaymentShouldActual);
-				if (iMidMNCount == 0)
-					if (masternodePaymentAmount > masternodePaymentShouldMax)
-						return error("Connect() : (iMidMNCount=0) masternodePaymentAmount %ld larger than %ld",
-						masternodePaymentAmount, masternodePaymentShouldActual);
-				if (nStakeReward > nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount))
-					return error("ConnectBlock() : coinstake pays too much (actual=%d vs calculated=%d)", nStakeReward,
-					nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount));
+			CBlockIndex* pIndexWork = pindex->pprev;
+			unsigned int iLastPaid = 0;
+			for (iLastPaid = 1; iLastPaid < 4095; iLastPaid++)
+			{
+				if (pIndexWork)
+				{
+					if ((pIndexWork->nNonce & (~2047)) == iAddrHash)
+						break;
+					pIndexWork = pIndexWork->pprev;
+				}
 			}
+			iWinerAge = iLastPaid;
+
+			iMidMNCount = (unsigned int)GetMidMasternodes();
+			fprintf(stderr, "ConnectBlock(): iWinerAge=%u,iMidMNCount=%u,nHeight=%d\n", iWinerAge, iMidMNCount, pindex->nHeight); //for Debug
+			if (iWinerAge > (iMidMNCount*0.6))
+				;
 			else
 			{
-				if (fDebug)
-				{ 
-					CTxDestination address1;
-					ExtractDestination(payee, address1);
-					CIonAddress address2(address1);
-					LogPrintf("CheckBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
-						foundPaymentAmount, masternodePaymentAmount, foundPayee, address2.ToString().c_str(), pindex->nHeight);
-				}
-				return DoS(100, error("CheckBlock() : Couldn't find masternode payment or payee"));
+				masternodePaymentShouldActual = GetMasternodePaymentSmall(pindex->nHeight, nFees);
 			}
+			//vector<COutput> vOutputsMN;
+			//vOutputsMN = activeMasternode.SelectCoinsMasternodeForPubKey(strAddr);
+			//if (vOutputsMN.size() == 0)
+			//	fprintf(stderr, "ConnectBlock() : ERROR: SelectCoinsMasternodeForPubKey FAILED!\n");//for Debug
+			//
+			//if (vOutputsMN.size() == 0)
+			//	return error("ConnectBlock() : ERROR: SelectCoinsMasternodeForPubKey FAILED!\n");
+			if (iMidMNCount > 0)
+				if (masternodePaymentAmount > masternodePaymentShouldActual)
+				{
+					fprintf(stderr, "Connect() : (iMidMNCount=%d) masternodePaymentAmount %ld larger than %ld.\n",
+						iMidMNCount, masternodePaymentAmount, masternodePaymentShouldActual);//for Debug
+					if (IsProtocolV3(pindex->nHeight))
+						return error("Connect() : (iMidMNCount=%d) masternodePaymentAmount %ld larger than %ld.",
+							iMidMNCount, masternodePaymentAmount, masternodePaymentShouldActual);
+				}
+			if (iMidMNCount == 0)
+				if (masternodePaymentAmount > masternodePaymentShouldMax)
+				{
+					fprintf(stderr, "Connect() : (iMidMNCount=0) masternodePaymentAmount %ld larger than %ld.\n",
+						masternodePaymentAmount, masternodePaymentShouldActual);//for Debug
+					if (IsProtocolV3(pindex->nHeight))
+						return error("Connect() : (iMidMNCount=0) masternodePaymentAmount %ld larger than %ld.",
+							masternodePaymentAmount, masternodePaymentShouldActual);
+				}
+			if (nStakeReward > nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount))
+			{
+				fprintf(stderr, "ConnectBlock() : coinstake pays too much V3 (actual=%ld vs calculated=%ld).\n", nStakeReward,
+					nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount)); //for Debug
+				if (IsProtocolV3(pindex->nHeight))
+					return error("ConnectBlock() : coinstake pays too much V3 (actual=%ld vs calculated=%ld)", nStakeReward,
+						nCalculatedStakeReward - (masternodePaymentShouldMax - masternodePaymentAmount));
+			}
+			if (GetBlockTime() > (GetAdjustedTime() - 180))
+			{
+				if (mnodeman.IsMNReal(strAddr))
+					fprintf(stderr, "ConnectBlock() : Masternode %s checked.\n", strAddr.c_str()); //for Debug
+				else
+				{
+					fprintf(stderr, "ConnectBlock() : ERROR : Can't find masternode %s !!!!\n", strAddr.c_str()); //for Debug
+					//if (IsProtocolV3(pindex->nHeight))
+					return error("ConnectBlock() : Can't find masternode %s.", strAddr.c_str()); //V3 (2017.6.15)
+				}
+			}
+
 		}
-    }
+		else
+		{
+			if (fDebug)
+			{
+				CTxDestination address1;
+				ExtractDestination(payee, address1);
+				CIonAddress address2(address1);
+				LogPrintf("CheckBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
+					foundPaymentAmount, masternodePaymentAmount, foundPayee, address2.ToString().c_str(), pindex->nHeight);
+			}
+			return DoS(100, error("CheckBlock() : Couldn't find masternode payment or payee"));
+		}
+	}
 
     // ppcoin: track money supply and mint amount info
     pindex->nMint = nValueOut - nValueIn + nFees;
@@ -2531,9 +2600,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
 {
     // These are checks that are independent of context
     // that can be verified before saving an orphan block.
-	if (IsProtocolV3(pindexBest->nHeight + 1))
-		if (nNonce > 2000)
-			return DoS(100, error("CheckBlock() : nNonce=%u, larger than 2000", nNonce));
+
 	// Size limits
     if (vtx.empty() || vtx.size() > MAX_BLOCK_SIZE || ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
         return DoS(100, error("CheckBlock() : size limits failed"));
@@ -3038,7 +3105,7 @@ bool CBlock::SignBlock(CWallet& wallet, CAmount nFees)
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
         int64_t nSearchInterval = 1;
-        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key))
+        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key, &nNonce))
         {
             if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1) //V3 (2017.6.15) GetPastTimeLimit() was changed.
             {
@@ -4646,7 +4713,7 @@ int64_t GetMasternodePaymentSmall(int nHeight, CAmount nFees)
 	uint64_t nCoinAge=0;
 	nReward2 = GetCoinstakeValue(nCoinAge, 0, nHeight);
 	if (nReward2 <= 0)
-		return false;
+		return 0;
 	int64_t ret = GetMasternodePayment(nHeight, nReward2) / 24;
 	ret += GetMasternodePayment(nHeight, nFees);
 

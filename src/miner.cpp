@@ -111,7 +111,7 @@ int GetMidMasternodes()
 	{
 		if (pBlockCurr)
 		{
-			vecNodes.push_back(pBlockCurr->nNonce);
+			vecNodes.push_back(pBlockCurr->nNonce & 2047);
 			pBlockCurr = pBlockCurr->pprev;
 		}
 		else
@@ -129,9 +129,9 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, bool fProofOfStake, int64_t* pFe
     auto_ptr<CBlock> pblock(new CBlock());
     if (!pblock.get())
         return NULL;
-	pblock->nNonce = mnodeman.GetMasternodeCount(); //V3
-	if (pblock->nNonce > 2000)
-		pblock->nNonce = 2000;
+	//pblock->nNonce = mnodeman.GetMasternodeCount(); //V3
+	//if (pblock->nNonce > 2000)
+	//	pblock->nNonce = 2000;
     CBlockIndex* pindexPrev = pindexBest;
     int nHeight = pindexPrev->nHeight + 1;
 

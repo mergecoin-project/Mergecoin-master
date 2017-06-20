@@ -534,14 +534,13 @@ std::vector<pair<int, CMasternode> > CMasternodeMan::GetMasternodeRanks(int64_t 
     return vecMasternodeRanks;
 }
 
-std::vector<pair<int, CMasternode> > CMasternodeMan::GetMasternodeScores(int64_t nBlockHeight, int minProtocol)
+std::vector<pair<unsigned int, CMasternode> > CMasternodeMan::GetMasternodeScores(int64_t nBlockHeight, int minProtocol)
 {
 	std::vector<pair<unsigned int, CMasternode> > vecMasternodeScores;
-	std::vector<pair<int, CMasternode> > vecMasternodeRanks;
 
 	//make sure we know about this block
 	uint256 hash = 0;
-	if (!GetBlockHash(hash, nBlockHeight)) return vecMasternodeRanks;
+	if (!GetBlockHash(hash, nBlockHeight)) return vecMasternodeScores;
 
 	// scan for winner
 	BOOST_FOREACH(CMasternode& mn, vMasternodes) {
@@ -562,13 +561,34 @@ std::vector<pair<int, CMasternode> > CMasternodeMan::GetMasternodeScores(int64_t
 
 	sort(vecMasternodeScores.rbegin(), vecMasternodeScores.rend(), CompareValueOnlyMN());
 
-	int rank = 0;
-	BOOST_FOREACH(PAIRTYPE(unsigned int, CMasternode)& s, vecMasternodeScores){
-		rank++;
-		vecMasternodeRanks.push_back(make_pair(s.first, s.second));
-	}
+	return vecMasternodeScores;
+}
 
-	return vecMasternodeRanks;
+bool CMasternodeMan::IsMNReal(std::string strMNAddr)
+{
+	//make sure we know about this block
+	uint256 hash = 0;
+	if (!GetBlockHash(hash, 0)) 
+		return 0;
+
+	// scan for winner
+	BOOST_FOREACH(CMasternode& mn, vMasternodes) 
+	{
+		mn.Check();
+		if (mn.activeState == (CMasternode::MASTERNODE_VIN_SPENT)) 
+			continue;
+		//std::string strVin = mn.vin.prevout.ToStringShort();
+		CScript pubkey;
+		pubkey.SetDestination(mn.pubkey.GetID());
+		CTxDestination address1;
+		ExtractDestination(pubkey, address1);
+		CIonAddress address2(address1);
+		std::string strMNDBAddr;
+		strMNDBAddr = address2.ToString();
+		if (strMNAddr == strMNDBAddr)
+			return true;
+	}
+	return false;
 }
 
 unsigned int CMasternodeMan::GetMasternodeCount(int64_t nBlockHeight)

@@ -281,7 +281,7 @@ public:
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     uint64_t GetStakeWeight() const;
-    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, CAmount nFees, CTransaction& txNew, CKey& key);
+    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, CAmount nFees, CTransaction& txNew, CKey& key, unsigned int* nNonceBlock);
 
     std::string SendMoney(CScript scriptPubKey, CAmount nValue, std::string& sNarr, CWalletTx& wtxNew, bool fAskFee=false);
     std::string SendMoneyToDestination(const CTxDestination &address, CAmount nValue, std::string& sNarr, CWalletTx& wtxNew, bool fAskFee=false);

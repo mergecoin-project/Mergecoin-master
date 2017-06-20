@@ -157,22 +157,42 @@ uint256 CMasternode::CalculateScore(int mod, int64_t nBlockHeight)
 	uint256 r;
 	if (nBlockHeight == 0)
 		nBlockHeight = pindexBest->nHeight;
-	if (IsProtocolV3(nBlockHeight))
+	uint256 hash = 0;
+	uint256 aux = vin.prevout.hash + vin.prevout.n;
+	if (!GetBlockHash(hash, nBlockHeight)) return 0;
+	uint256 hash2 = Hash(BEGIN(hash), END(hash));
+	uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
+	r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
+	unsigned int rInt32 = 0;
+	memcpy(&rInt32, &r, 4);
+	unsigned int iLastPaid = 0;
+	CScript pubkeyWork;
+	pubkeyWork.SetDestination(pubkey.GetID());
+	CTxDestination address1;
+	ExtractDestination(pubkeyWork, address1);
+	CIonAddress address2(address1);
+	std::string strAddr = address2.ToString();
+	uint256 hash4;
+	SHA256((unsigned char*)strAddr.c_str(), strAddr.length(), (unsigned char*)&hash4);
+	//= Hash(BEGIN(strAddr), END(strAddr));
+	unsigned int iAddrHash;
+	memcpy(&iAddrHash, &hash4, 4);
+	iAddrHash = iAddrHash << 11;
+	fprintf(stderr, "CalculateScore():MN addr:%s, AddrHash:%X\n", strAddr.c_str(), iAddrHash); //for Debug
+	CBlockIndex* pIndexWork = pindexBest;
+	for (iLastPaid = 1; iLastPaid < 4095; iLastPaid++)
 	{
-		r = GetMasternodeInputAge();
+		if (pIndexWork)
+		{
+			if ((pIndexWork->nNonce & (~2047)) == iAddrHash)
+				break;
+			pIndexWork = pIndexWork->pprev;
+		}
 	}
-	else
-	{
-		uint256 hash = 0;
-		uint256 aux = vin.prevout.hash + vin.prevout.n;
-
-		if (!GetBlockHash(hash, nBlockHeight)) return 0;
-
-		uint256 hash2 = Hash(BEGIN(hash), END(hash));
-		uint256 hash3 = Hash(BEGIN(hash), END(hash), BEGIN(aux), END(aux));
-
-		r = (hash3 > hash2 ? hash3 - hash2 : hash2 - hash3);
-	}
+	rInt32 = (rInt32 >> 12);
+	rInt32 = (rInt32 | (iLastPaid<<20));
+	r = rInt32;
+	fprintf(stderr, "\t iLastPaid:%d, rInt32:%X\n", iLastPaid, rInt32);
     return r;
 }
 

@@ -70,7 +70,7 @@ void ProcessMessageInstantX(CNode* pfrom, std::string& strCommand, CDataStream& 
         CBlockIndex* pindex;
         CBlock block;
         CTxDB txdb("r");
-
+		pindex = pindexBest; //V3 Is this right??????
         bool fAccepted = false;
         {
             LOCK(cs_main);
@@ -346,6 +346,7 @@ bool ProcessConsensusVote(CNode* pnode, CConsensusVote& ctx)
     CBlockIndex* pindex;
     CBlock block;
     CTxDB txdb("r");
+	pindex = pindexBest; //V3 Is this right??????
     //compile consessus vote
     std::map<uint256, CTransactionLock>::iterator i = mapTxLocks.find(ctx.txHash);
     if (i != mapTxLocks.end()){

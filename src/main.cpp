@@ -1904,6 +1904,9 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 	// Check it again in case a previous version let a bad block in, but skip BlockSig checking
     if (!CheckBlock(!fJustCheck, !fJustCheck, false))
         return false;
+	if (IsProtocolV3(pindex->nHeight))
+		if (GetBlockTime() > FutureDriftV3(GetAdjustedTime()))  //V3
+			return error("CheckBlock() : block timestamp too far in the future (V3: 30 s).");
 
     unsigned int flags = SCRIPT_VERIFY_NOCACHE;
 
@@ -2133,10 +2136,10 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 				CTxDestination address1;
 				ExtractDestination(payee, address1);
 				CIonAddress address2(address1);
-				LogPrintf("CheckBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
+				LogPrintf("ConnectBlock() : Couldn't find masternode payment(%d|%d) or payee(%d|%s) nHeight %d. \n",
 					foundPaymentAmount, masternodePaymentAmount, foundPayee, address2.ToString().c_str(), pindex->nHeight);
 			}
-			return DoS(100, error("CheckBlock() : Couldn't find masternode payment or payee"));
+			return DoS(100, error("ConnectBlock() : Couldn't find masternode payment or payee"));
 		}
 	}
 
@@ -2610,7 +2613,7 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
         return DoS(50, error("CheckBlock() : proof of work failed"));
 
     // Check timestamp
-    if (GetBlockTime() > FutureDriftV3(GetAdjustedTime()))
+    if (GetBlockTime() > FutureDrift(GetAdjustedTime()))
         return error("CheckBlock() : block timestamp too far in the future");
 
     // First transaction must be coinbase, the rest must not be

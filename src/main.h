@@ -1034,7 +1034,15 @@ public:
 		    return GetBlockTime() - 16200;
     }
 
-    enum { nMedianTimeSpan=11 };
+	int64_t GetPastTimeLimitV2() const
+	{
+		if (IsProtocolV2(nHeight))
+			return GetBlockTime() - 600;  //V2
+		else
+			return GetBlockTime() - 16200;
+	}
+	
+	enum { nMedianTimeSpan = 11 };
 
     int64_t GetMedianTimePast() const
     {

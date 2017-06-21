@@ -2818,8 +2818,13 @@ bool CBlock::AcceptBlock()
         return DoS(100, error("AcceptBlock() : incorrect %s", IsProofOfWork() ? "proof-of-work" : "proof-of-stake"));
 
     // Check timestamp against prev
-    if (GetBlockTime() <= pindexPrev->GetPastTimeLimit() || FutureDrift(GetBlockTime()) < pindexPrev->GetBlockTime())
-		return DoS(10, error("AcceptBlock() : block's timestamp is too early")); //V3 (2017.6.15)
+	if (GetBlockTime() <= pindexPrev->GetPastTimeLimitV2() || FutureDrift(GetBlockTime()) < pindexPrev->GetBlockTime())
+		return DoS(10, error("AcceptBlock() : block's timestamp is too early")); //V2
+	if (GetBlockTime() < (pindexPrev->GetPastTimeLimit()))
+	{
+		fprintf(stderr, "AcceptBlock() : block(%d)'s timestamp(%ld) is early than previous(%ld) V3.\n", nHeight, GetBlockTime(), pindexPrev->GetPastTimeLimit());
+		return error("AcceptBlock() : block(%d)'s timestamp(%ld) is early than previous(%ld) V3", nHeight, GetBlockTime(), pindexPrev->GetPastTimeLimit()); //V3 (2017.6.15) Without DoS
+	}
 
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, vtx)
@@ -3110,7 +3115,7 @@ bool CBlock::SignBlock(CWallet& wallet, CAmount nFees)
         int64_t nSearchInterval = 1;
         if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key, &nNonce))
         {
-            if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()+1) //V3 (2017.6.15) GetPastTimeLimit() was changed.
+            if (txCoinStake.nTime >= pindexBest->GetPastTimeLimit()) //V3 (2017.6.15) GetPastTimeLimit() was changed.
             {
                 // make sure coinstake would meet timestamp protocol
                 //    as it would be the same as the block timestamp

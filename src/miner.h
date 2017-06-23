@@ -29,5 +29,5 @@ void SHA256Transform(void* pstate, void* pinput, const void* pinit);
 
 /* Get total number of masternodes in past 361 blocks. */
 int GetMidMasternodes();
-
+int GetMidMasternodesUntilPrev();
 #endif // NOVACOIN_MINER_H

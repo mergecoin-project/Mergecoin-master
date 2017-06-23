@@ -2075,7 +2075,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 			}
 			iWinerAge = iLastPaid;
 
-			iMidMNCount = (unsigned int)GetMidMasternodes();
+			iMidMNCount = (unsigned int)GetMidMasternodesUntilPrev();
 			fprintf(stderr, "ConnectBlock(): iWinerAge=%u,iMidMNCount=%u,nHeight=%d\n", iWinerAge, iMidMNCount, pindex->nHeight); //for Debug
 			if (iWinerAge > (iMidMNCount*0.6))
 				;

@@ -2060,7 +2060,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 			if (IsProtocolV3(pindex->nHeight))
 				if ((nNonce & (~2047)) != iAddrHash)
 				{
-					return error("Connect() : nNonce&~2047 (%X) != iAddrHash(%X)", (nNonce & (~2047)), iAddrHash);
+					return DoS(1, error("Connect() : nNonce&~2047 (%X) != iAddrHash(%X)", (nNonce & (~2047)), iAddrHash));
 				}
 			CBlockIndex* pIndexWork = pindex->pprev;
 			unsigned int iLastPaid = 0;
@@ -2820,10 +2820,10 @@ bool CBlock::AcceptBlock()
     // Check timestamp against prev
 	if (GetBlockTime() <= pindexPrev->GetPastTimeLimitV2() || FutureDrift(GetBlockTime()) < pindexPrev->GetBlockTime())
 		return DoS(10, error("AcceptBlock() : block's timestamp is too early")); //V2
-	if (GetBlockTime() < (pindexPrev->GetPastTimeLimit()))
+	if (IsProtocolV3(nHeight) && (GetBlockTime() < (pindexPrev->GetPastTimeLimit())))
 	{
 		fprintf(stderr, "AcceptBlock() : block(%d)'s timestamp(%ld) is early than previous(%ld) V3.\n", nHeight, GetBlockTime(), pindexPrev->GetPastTimeLimit());
-		return error("AcceptBlock() : block(%d)'s timestamp(%ld) is early than previous(%ld) V3", nHeight, GetBlockTime(), pindexPrev->GetPastTimeLimit()); //V3 (2017.6.15) Without DoS
+		return DoS(1, error("AcceptBlock() : block(%d)'s timestamp(%ld) is early than previous(%ld) V3", nHeight, GetBlockTime(), pindexPrev->GetPastTimeLimit())); //V3 (2017.6.15) Without DoS
 	}
 
     // Check that all transactions are finalized

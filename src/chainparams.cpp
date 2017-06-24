@@ -106,9 +106,15 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
 
-		vSeeds.push_back(CDNSSeedData("47.89.43.73", "47.89.43.73"));
+	vSeeds.push_back(CDNSSeedData("47.89.43.73", "47.89.43.73"));
         vSeeds.push_back(CDNSSeedData("43.241.232.45", "43.241.232.45"));
-          vSeeds.push_back(CDNSSeedData("47.89.178.249", "47.89.178.249"));      
+        vSeeds.push_back(CDNSSeedData("47.89.178.249", "47.89.178.249"));
+        vSeeds.push_back(CDNSSeedData("121.40.68.20", "120.55.82.131"));
+        vSeeds.push_back(CDNSSeedData("121.41.19.30", "121.41.19.30"));
+        vSeeds.push_back(CDNSSeedData("120.26.231.61", "120.26.231.61"));
+        vSeeds.push_back(CDNSSeedData("47.94.89.212", "47.94.89.212"));
+	vSeeds.push_back(CDNSSeedData("mergechain.com", "mergechain.com")); 
+	vSeeds.push_back(CDNSSeedData("mergecoin.com", "mergecoin.com")); 
         convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
 
 		nPoolMaxTransactions = 3;

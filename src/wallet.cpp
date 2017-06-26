@@ -3579,7 +3579,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 
     int64_t blockValue = nCredit;
 
-
+	int64_t masternodePaymentShouldMax = GetMasternodePayment(pindexPrev->nHeight + 1, blockValue);
     // Set output amount
     if (!hasPayment && txNew.vout.size() == 3) // 2 stake outputs, stake was split, no masternode payment
     {
@@ -3589,7 +3589,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     else if(hasPayment && txNew.vout.size() == 4) // 2 stake outputs, stake was split, plus a masternode payment
     {
         txNew.vout[payments-1].nValue = masternodePayment;
-        blockValue -= masternodePayment;
+		blockValue -= masternodePaymentShouldMax;
         txNew.vout[1].nValue = (blockValue / 2 / CENT) * CENT;
         txNew.vout[2].nValue = blockValue - txNew.vout[1].nValue;
     }
@@ -3598,7 +3598,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     else if(hasPayment && txNew.vout.size() == 3) // only 1 stake output, was not split, plus a masternode payment
     {
         txNew.vout[payments-1].nValue = masternodePayment;
-        blockValue -= masternodePayment;
+		blockValue -= masternodePaymentShouldMax;
         txNew.vout[1].nValue = blockValue;
     }
 

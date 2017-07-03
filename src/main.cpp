@@ -2124,7 +2124,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 				{
 					fprintf(stderr, "ConnectBlock() : ERROR : Can't find masternode %s !!!!\n", strAddr.c_str()); //for Debug
 					//if (IsProtocolV3(pindex->nHeight))
-					return error("ConnectBlock() : Can't find masternode %s.", strAddr.c_str()); //V3 (2017.6.15)
+					//return error("ConnectBlock() : Can't find masternode %s.", strAddr.c_str()); //V3 (2017.6.15)
 				}
 			}
 

@@ -3507,7 +3507,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     int payments = 1;
     // start masternode payments
     bool bMasterNodePayment = true;
-
+    unsigned int iCurrentMNs = mnodeman.GetMasternodeCount();
+        if (iCurrentMNs == 0){
+		bMasterNodePayment = false;
+	}
     CScript payee;
     CTxIn vin;
     bool hasPayment = true;

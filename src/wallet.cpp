@@ -3532,7 +3532,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
 				unsigned int iAddrHash;
 				memcpy(&iAddrHash, &hash4, 4);
 				iAddrHash = iAddrHash << 11;
-				unsigned int iCurrentMNs = mnodeman.GetMasternodeCount();
 				if (iCurrentMNs > 2047)
 					iCurrentMNs = 2047;
 				*nNonceBlock = (iAddrHash | iCurrentMNs);

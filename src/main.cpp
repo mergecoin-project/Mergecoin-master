@@ -2053,8 +2053,15 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 			//= Hash(BEGIN(strAddr), END(strAddr));
 			SHA256((unsigned char*)strAddr.c_str(), strAddr.length(), (unsigned char*)&hash4);
 			unsigned int iAddrHash;
+			unsigned int iCurrentMNs = mnodeman.GetMasternodeCount();
 			memcpy(&iAddrHash, &hash4, 4);
-			iAddrHash = iAddrHash << 11; //max 2047 (11b) for record current numbers of masternode
+			if (iCurrentMNs == 0){
+				iAddrHash = 0;
+				nNonce = 0;
+	                }
+			else{
+			    iAddrHash = iAddrHash << 11; //max 2047 (11b) for record current numbers of masternode
+			}
 			fprintf(stderr, "ConnectBlock():MN addr:%s, AddrHash:%X, nNonce&~2047:%X, nNonce:%X\n", 
 				strAddr.c_str(), iAddrHash, (nNonce & (~2047)), nNonce); //for Debug
 			if (IsProtocolV3(pindex->nHeight))
@@ -2074,8 +2081,12 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 				}
 			}
 			iWinerAge = iLastPaid;
-
+                        if (iCurrentMNs == 0){
+			       iMidMNCount = 0;
+			}
+			else {
 			iMidMNCount = (unsigned int)GetMidMasternodesUntilPrev();
+			}
 			fprintf(stderr, "ConnectBlock(): iWinerAge=%u,iMidMNCount=%u,nHeight=%d\n", iWinerAge, iMidMNCount, pindex->nHeight); //for Debug
 			if (iWinerAge > (iMidMNCount*0.6))
 				;
